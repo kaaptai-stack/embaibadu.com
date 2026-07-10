@@ -1,0 +1,30 @@
+databases:
+  - name: embaibadu-db
+    plan: free
+    databaseName: embaibadu
+    user: embaibadu
+
+services:
+  - type: web
+    name: embaibadu
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: flask create-admin; gunicorn run:app --workers 1
+    envVars:
+      - key: FLASK_APP
+        value: run.py
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: embaibadu-db
+          property: connectionString
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

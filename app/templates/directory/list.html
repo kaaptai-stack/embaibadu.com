@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% block title %}Directory — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="max-w-5xl mx-auto px-4 py-6">
+  <h1 class="text-xl font-bold text-primary-800 mb-4">Member Directory</h1>
+
+  <div class="mb-4">
+    <input id="f-search" type="text" placeholder="Search by name, company, or designation..." class="w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm">
+  </div>
+
+  <!-- single control row: Filter, Sort, Swipe toggle -->
+  <div class="flex items-center gap-2 mb-3 flex-wrap">
+    <button id="filter-btn" class="relative flex items-center gap-1.5 border border-gray-300 bg-white rounded-md px-3 py-1.5 text-sm hover:bg-gray-50">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 8h12M10 12h4M11 16h2" /></svg>
+      Filter
+      <span id="filter-count" class="hidden absolute -top-1.5 -right-1.5 bg-primary-500 text-white text-[10px] rounded-full w-4 h-4 items-center justify-center">0</span>
+    </button>
+    <select id="f-sort" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm bg-white">
+      <option value="">Sort: Most active first</option>
+      <option value="name">Sort: Name (A-Z)</option>
+      <option value="batch">Sort: Batch</option>
+      <option value="industry">Sort: Industry</option>
+      <option value="company">Sort: Company</option>
+    </select>
+    <label class="flex items-center gap-2 text-sm ml-auto bg-white border border-gray-300 rounded-md px-3 py-1.5 cursor-pointer select-none">
+      Swipe view
+      <span id="swipe-toggle" class="relative inline-block w-9 h-5 rounded-full bg-primary-500 transition-colors">
+        <span id="swipe-toggle-knob" class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"></span>
+      </span>
+    </label>
+  </div>
+
+  <!-- filter panel (collapsed by default) -->
+  <div id="filter-panel" class="hidden bg-white border border-gray-200 rounded-lg p-4 mb-4 grid grid-cols-2 sm:grid-cols-5 gap-2">
+    <select id="f-batch" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm col-span-1">
+      <option value="">All batches</option>
+      {% for b in batches %}<option value="{{ b.batch_name }}">{{ b.batch_name }}</option>{% endfor %}
+    </select>
+    <select id="f-year" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm col-span-1">
+      <option value="">All passing years</option>
+      {% for y in passing_years %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+    </select>
+    <select id="f-industry" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm col-span-1">
+      <option value="">All industries</option>
+      {% for i in industries %}<option value="{{ i.name }}">{{ i.name }}</option>{% endfor %}
+    </select>
+    <select id="f-blood" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm col-span-1">
+      <option value="">All blood groups</option>
+      {% for bg in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}<option value="{{ bg }}">{{ bg }}</option>{% endfor %}
+    </select>
+    <select id="f-location" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm col-span-1">
+      <option value="">All locations</option>
+      {% for l in locations %}<option value="{{ l }}">{{ l }}</option>{% endfor %}
+    </select>
+    <div class="col-span-2 sm:col-span-5 flex justify-end">
+      <button id="filter-clear" class="text-sm text-gray-500 hover:underline">Clear filters</button>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm px-4 py-2 rounded-md shadow-lg z-50"></div>
+
+  <div id="swipe-view" class="max-w-sm mx-auto">
+    <div class="relative">
+      <div id="swipe-card"></div>
+      <button id="swipe-prev" aria-label="Previous" class="absolute left-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 shadow flex items-center justify-center text-primary-700 hover:bg-white">&#10094;</button>
+      <button id="swipe-next" aria-label="Next" class="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 shadow flex items-center justify-center text-primary-700 hover:bg-white">&#10095;</button>
+    </div>
+  </div>
+
+  <div id="scroll-view" class="hidden grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5"></div>
+  <div id="loading" class="text-center text-gray-400 text-sm py-6 hidden">Loading more...</div>
+  <div id="empty" class="text-center text-gray-400 text-sm py-10 hidden">No members match your search.</div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let results = [];
+let swipeIndex = 0;
+let cursor = 0;
+let swipeOn = true;
+let loading = false;
+let exhausted = false;
+
+function currentParams(cursorVal) {
+  const p = new URLSearchParams();
+  p.set('q', document.getElementById('f-search').value);
+  p.set('batch', document.getElementById('f-batch').value);
+  p.set('passing_year', document.getElementById('f-year').value);
+  p.set('industry', document.getElementById('f-industry').value);
+  p.set('blood_group', document.getElementById('f-blood').value);
+  p.set('location', document.getElementById('f-location').value);
+  p.set('sort', document.getElementById('f-sort').value);
+  p.set('cursor', cursorVal || 0);
+  return p;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.add('hidden'), 2200);
+}
+
+async function contactAction(kind, contactUrl) {
+  try {
+    const res = await fetch(contactUrl);
+    if (!res.ok) { showToast('Not available right now.'); return; }
+    const data = await res.json();
+    if (kind === 'call') {
+      if (data.contacts && data.contacts.length) window.location.href = 'tel:' + data.contacts[0].number;
+      else showToast('No visible number for this member.');
+    } else if (kind === 'whatsapp') {
+      if (data.whatsapp_url) window.open(data.whatsapp_url, '_blank');
+      else showToast('WhatsApp not available for this member.');
+    } else if (kind === 'email') {
+      window.location.href = 'mailto:' + data.email;
+    } else if (kind === 'facebook') {
+      if (data.facebook_url) window.open(data.facebook_url, '_blank');
+      else showToast('No Facebook link for this member.');
+    } else if (kind === 'linkedin') {
+      if (data.linkedin_url) window.open(data.linkedin_url, '_blank');
+      else showToast('No LinkedIn link for this member.');
+    }
+  } catch (e) {
+    showToast('Could not fetch contact info.');
+  }
+}
+window.contactAction = contactAction;
+
+const ICONS = {
+  call: '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24 11.3 11.3 0 0 0 3.54.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.3 11.3 0 0 0 .57 3.54 1 1 0 0 1-.25 1.02z"/></svg>',
+  whatsapp: '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M17.47 14.38c-.29-.15-1.73-.85-2-.95-.27-.1-.46-.15-.66.15-.2.29-.76.95-.93 1.14-.17.2-.34.22-.63.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.71-1.6-2-.17-.29-.02-.45.13-.6.13-.13.29-.34.44-.51.15-.17.2-.29.29-.49.1-.2.05-.37-.02-.51-.07-.15-.66-1.59-.9-2.18-.24-.57-.48-.5-.66-.5h-.56c-.2 0-.51.07-.78.37-.27.29-1.02 1-1.02 2.44s1.05 2.83 1.19 3.02c.15.2 2.06 3.14 5 4.4.7.3 1.24.48 1.67.61.7.22 1.34.19 1.84.12.56-.08 1.73-.71 1.98-1.39.24-.68.24-1.27.17-1.39-.07-.12-.27-.2-.56-.34z"/><path d="M12 2a10 10 0 0 0-8.6 15.06L2 22l5.1-1.34A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.08-1.12l-.29-.17-3.03.8.81-2.95-.19-.3A8 8 0 1 1 12 20z"/></svg>',
+  email: '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h17A1.5 1.5 0 0 1 22 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-17A1.5 1.5 0 0 1 2 18.5zm2.2.5 7.36 5.9a.75.75 0 0 0 .88 0L19.8 6z"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.5-3.89 3.78-3.89 1.1 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z"/></svg>',
+  linkedin: '<svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46zM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56z"/></svg>',
+};
+
+function avatarHtml(m, size) {
+  if (m.photo_url) {
+    return `<img src="${m.photo_url}" class="${size} rounded-full object-cover border-4 border-primary-50 shrink-0">`;
+  }
+  return `<div class="${size} rounded-full bg-primary-50 border-4 border-primary-50 flex items-center justify-center shrink-0 overflow-hidden">
+    <svg viewBox="0 0 24 24" fill="currentColor" class="w-3/4 h-3/4 text-primary-300">
+      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.42 0-8 2.24-8 5v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-2.76-3.58-5-8-5z"/>
+    </svg>
+  </div>`;
+}
+
+function infoLine(label, value) {
+  if (!value) return '';
+  return `<div class="text-sm text-gray-500 truncate"><span class="text-gray-400">${label}:</span> ${value}</div>`;
+}
+
+function cardHtml(m, tall) {
+  const avatar = avatarHtml(m, tall ? 'w-24 h-24' : 'w-16 h-16');
+  const cUrl = m.contact_url;
+  const iconBtn = (kind, extraClass) =>
+    `<button onclick="event.stopPropagation(); contactAction('${kind}', '${cUrl}')" title="${kind.charAt(0).toUpperCase() + kind.slice(1)}" class="w-9 h-9 rounded-full flex items-center justify-center ${extraClass}">${ICONS[kind]}</button>`;
+  return `
+    <a href="${m.detail_url}" class="flex flex-col items-center text-left">
+      ${avatar}
+      <div class="min-w-0 w-full mt-3">
+        <div class="font-semibold text-gray-800 text-lg truncate">${m.name}</div>
+        ${infoLine('Batch', m.batch)}
+        ${infoLine('Experience', m.years_experience != null ? m.years_experience + ' yrs' : null)}
+        ${infoLine('Company', m.company)}
+        ${infoLine('Industry', m.industry)}
+      </div>
+    </a>
+    <div class="flex items-center gap-2 mt-4 pt-4 border-t border-gray-100">
+      ${iconBtn('call', 'bg-primary-50 hover:bg-primary-100 text-primary-700')}
+      ${iconBtn('whatsapp', 'bg-green-50 hover:bg-green-100 text-green-600')}
+      ${iconBtn('email', 'bg-gray-100 hover:bg-gray-200 text-gray-600')}
+      ${iconBtn('facebook', 'bg-blue-50 hover:bg-blue-100 text-blue-700')}
+      ${iconBtn('linkedin', 'bg-sky-50 hover:bg-sky-100 text-sky-700')}
+    </div>`;
+}
+
+function cardWrapperClass(tall) {
+  return `bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow p-6 ${tall ? 'min-h-[340px]' : ''} flex flex-col justify-center`;
+}
+
+async function resetAndSearch() {
+  results = [];
+  swipeIndex = 0;
+  cursor = 0;
+  exhausted = false;
+  document.getElementById('scroll-view').innerHTML = '';
+  await loadMore(true);
+  renderSwipe();
+}
+
+async function loadMore(isReset) {
+  if (loading || exhausted) return;
+  loading = true;
+  document.getElementById('loading').classList.remove('hidden');
+  const res = await fetch('{{ url_for("directory.api_directory") }}?' + currentParams(cursor).toString());
+  const data = await res.json();
+  document.getElementById('loading').classList.add('hidden');
+  loading = false;
+
+  document.getElementById('empty').classList.toggle('hidden', !(isReset && data.results.length === 0));
+
+  results = results.concat(data.results);
+  if (!swipeOn) {
+    const wrap = document.getElementById('scroll-view');
+    data.results.forEach(m => {
+      const div = document.createElement('div');
+      div.className = cardWrapperClass(true);
+      div.innerHTML = cardHtml(m, true);
+      wrap.appendChild(div);
+    });
+  }
+  if (data.next_cursor === null) { exhausted = true; } else { cursor = data.next_cursor; }
+}
+
+function renderSwipe() {
+  const card = document.getElementById('swipe-card');
+  if (results.length === 0) {
+    card.innerHTML = `<div class="${cardWrapperClass(true)}"><p class="text-gray-400 text-center">No members found.</p></div>`;
+    return;
+  }
+  const m = results[swipeIndex];
+  card.innerHTML = `<div class="${cardWrapperClass(true)}">${cardHtml(m, true)}</div>`;
+}
+
+document.getElementById('swipe-next').addEventListener('click', async () => {
+  if (swipeIndex < results.length - 1) { swipeIndex++; renderSwipe(); }
+  else { await loadMore(false); if (swipeIndex < results.length - 1) { swipeIndex++; renderSwipe(); } }
+});
+document.getElementById('swipe-prev').addEventListener('click', () => {
+  if (swipeIndex > 0) { swipeIndex--; renderSwipe(); }
+});
+
+let touchStartX = null;
+document.getElementById('swipe-view').addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+document.getElementById('swipe-view').addEventListener('touchend', e => {
+  if (touchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (dx > 50) document.getElementById('swipe-prev').click();
+  else if (dx < -50) document.getElementById('swipe-next').click();
+  touchStartX = null;
+});
+
+function setSwipeMode(on) {
+  swipeOn = on;
+  const knob = document.getElementById('swipe-toggle-knob');
+  const track = document.getElementById('swipe-toggle');
+  knob.style.transform = on ? 'translateX(0)' : 'translateX(1rem)';
+  track.classList.toggle('bg-primary-500', on);
+  track.classList.toggle('bg-gray-300', !on);
+  document.getElementById('swipe-view').classList.toggle('hidden', !on);
+  document.getElementById('scroll-view').classList.toggle('hidden', on);
+  if (!on) {
+    const wrap = document.getElementById('scroll-view');
+    wrap.innerHTML = '';
+    results.forEach(m => {
+      const div = document.createElement('div');
+      div.className = cardWrapperClass(true);
+      div.innerHTML = cardHtml(m, true);
+      wrap.appendChild(div);
+    });
+  } else {
+    renderSwipe();
+  }
+}
+document.getElementById('swipe-toggle').parentElement.addEventListener('click', () => setSwipeMode(!swipeOn));
+setSwipeMode(true);
+
+document.getElementById('filter-btn').addEventListener('click', () => {
+  document.getElementById('filter-panel').classList.toggle('hidden');
+});
+document.getElementById('filter-clear').addEventListener('click', () => {
+  ['f-batch', 'f-year', 'f-industry', 'f-blood', 'f-location'].forEach(id => document.getElementById(id).value = '');
+  resetAndSearch();
+  updateFilterCount();
+});
+function updateFilterCount() {
+  const active = ['f-batch', 'f-year', 'f-industry', 'f-blood', 'f-location'].filter(id => document.getElementById(id).value).length;
+  const badge = document.getElementById('filter-count');
+  if (active > 0) { badge.textContent = active; badge.classList.remove('hidden'); badge.classList.add('flex'); }
+  else { badge.classList.add('hidden'); badge.classList.remove('flex'); }
+}
+
+window.addEventListener('scroll', () => {
+  if (swipeOn) return;
+  if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 300) loadMore(false);
+});
+
+['f-search','f-batch','f-year','f-industry','f-blood','f-location','f-sort'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener(id === 'f-search' ? 'input' : 'change', debounce(() => { resetAndSearch(); updateFilterCount(); }, 350));
+});
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+resetAndSearch();
+</script>
+{% endblock %}

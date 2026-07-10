@@ -1,0 +1,25 @@
+{% extends 'admin/_base.html' %}
+{% block title %}Activity Log — Admin{% endblock %}
+{% block admin_content %}
+<h1 class="text-xl font-bold text-primary-800 mb-4">Activity Log</h1>
+<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+  <table class="w-full text-sm whitespace-nowrap">
+    <thead class="bg-gray-50 text-left text-gray-500"><tr>
+      <th class="px-3 py-2">When</th><th class="px-3 py-2">Admin</th><th class="px-3 py-2">Action</th><th class="px-3 py-2">Target</th><th class="px-3 py-2">Details</th>
+    </tr></thead>
+    <tbody class="divide-y">
+      {% for log in logs %}
+      <tr>
+        <td class="px-3 py-2">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td class="px-3 py-2">{{ log.admin.name }}</td>
+        <td class="px-3 py-2">{{ log.action }}</td>
+        <td class="px-3 py-2 text-gray-500">{{ log.target_user_id or '—' }}</td>
+        <td class="px-3 py-2 text-gray-500">{{ log.details or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="px-3 py-6 text-center text-gray-400">No admin actions logged yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

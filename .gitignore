@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+
+# Flask instance data (SQLite DB — local runtime data, never committed)
+instance/
+
+# User-uploaded content
+app/static/uploads/
+
+# Local tooling config
+.claude/
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environment secrets
+.env
+.env.*
+
+# Project source materials not needed to run the app
+EMBA Database.xlsx
+EMBA_Alumni_Website_Specification_v1.1_2.docx
+spec_text.txt
+EMBA group logo*.png
+EMBA group logo.ai

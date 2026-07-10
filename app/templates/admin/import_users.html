@@ -1,0 +1,13 @@
+{% extends 'admin/_base.html' %}
+{% block title %}Bulk import — Admin{% endblock %}
+{% block admin_content %}
+<a href="{{ url_for('admin.users_list') }}" class="text-sm text-primary-600 hover:underline">&larr; Back to users</a>
+<h1 class="text-xl font-bold text-primary-800 mt-2 mb-4">Bulk import members</h1>
+<p class="text-sm text-gray-500 mb-4">Upload a .csv or .xlsx file with columns: <code>name, batch, roll, mobile, email</code>. Existing emails are skipped. Login credentials are emailed to each new member (see Dev Inbox).</p>
+
+<form method="post" enctype="multipart/form-data" class="bg-white border border-gray-200 rounded-lg p-5 space-y-4 max-w-md">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="file" name="file" accept=".csv,.xlsx" required class="w-full border border-gray-300 rounded-md px-3 py-2">
+  <button type="submit" class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-md font-medium">Import</button>
+</form>
+{% endblock %}

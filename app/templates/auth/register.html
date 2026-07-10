@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Register — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 py-16">
+  <h1 class="text-2xl font-bold text-primary-800 mb-2 text-center">Create your account</h1>
+  <p class="text-sm text-gray-500 mb-6 text-center">Referred by <strong>{{ referral.referrer.name }}</strong></p>
+  {% if preloaded %}
+  <div class="bg-primary-50 border border-primary-100 text-primary-800 text-sm rounded-md px-4 py-3 mb-4">
+    We found an existing association record for this email ({{ preloaded.name }}{% if preloaded.profile and preloaded.profile.current_designation %}, {{ preloaded.profile.current_designation }}{% endif %}). Confirm your details below to claim it.
+  </div>
+  {% endif %}
+  <form method="post" class="bg-white shadow-sm border border-gray-200 rounded-lg p-6 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="ref" value="{{ referral.token }}">
+    <div>
+      <label class="block text-sm font-medium mb-1">Full name</label>
+      <input type="text" name="name" required value="{{ name }}" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400">
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Email (this will be your login ID)</label>
+      <input type="email" name="email" required value="{{ email }}" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400">
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Password</label>
+      <input type="password" name="password" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400">
+      <p class="text-xs text-gray-400 mt-1">Min 8 characters, with a letter, a number, and a special character.</p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Confirm password</label>
+      <input type="password" name="confirm_password" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400">
+    </div>
+    <button type="submit" class="w-full bg-primary-500 hover:bg-primary-600 text-white rounded-md py-2 font-medium">Create account</button>
+  </form>
+</section>
+{% endblock %}

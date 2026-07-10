@@ -1,0 +1,103 @@
+{% extends 'admin/_base.html' %}
+{% block title %}Users — Admin{% endblock %}
+{% block admin_content %}
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+  <h1 class="text-xl font-bold text-primary-800">Users ({{ rows|length }})</h1>
+  <div class="flex gap-2">
+    <a href="{{ url_for('admin.new_user') }}" class="bg-primary-500 hover:bg-primary-600 text-white text-sm px-3 py-1.5 rounded-md">+ Add member</a>
+    <a href="{{ url_for('admin.import_users') }}" class="border border-gray-300 text-sm px-3 py-1.5 rounded-md">Bulk import</a>
+    <a href="{{ url_for('admin.export_users') }}" class="border border-gray-300 text-sm px-3 py-1.5 rounded-md">Export CSV</a>
+  </div>
+</div>
+
+<form method="get" class="bg-white border border-gray-200 rounded-lg p-3 mb-4 flex flex-wrap gap-2">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search name or email..." class="border border-gray-300 rounded-md px-3 py-1.5 text-sm flex-1 min-w-[180px]">
+  <select name="status" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+    <option value="">All statuses</option>
+    {% for s in statuses %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s|capitalize }}</option>{% endfor %}
+  </select>
+  <select name="batch" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm">
+    <option value="">All batches</option>
+    {% for b in batches %}<option value="{{ b.batch_name }}" {% if batch == b.batch_name %}selected{% endif %}>{{ b.batch_name }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-sm px-3 py-1.5 rounded-md">Filter</button>
+</form>
+
+<div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+  <table class="w-full text-sm whitespace-nowrap">
+    <thead class="bg-gray-50 text-left text-gray-500">
+      <tr>
+        <th class="px-3 py-2"></th>
+        <th class="px-3 py-2">Name</th>
+        <th class="px-3 py-2">Batch</th>
+        <th class="px-3 py-2">Roll</th>
+        <th class="px-3 py-2">Email</th>
+        <th class="px-3 py-2">Mobile</th>
+        <th class="px-3 py-2">Status</th>
+        <th class="px-3 py-2">Payment</th>
+        <th class="px-3 py-2">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y">
+      {% for m, pay_status in rows %}
+      <tr>
+        <td class="px-3 py-2">
+          {% if m.profile and m.profile.photo_filename %}
+          <img src="{{ url_for('static', filename='uploads/photos/' + m.profile.photo_filename) }}" class="w-8 h-8 rounded-full object-cover">
+          {% else %}
+          <div class="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold">{{ m.name[:1] }}</div>
+          {% endif %}
+        </td>
+        <td class="px-3 py-2 font-medium">{{ m.name }}</td>
+        <td class="px-3 py-2">{{ m.emba_details.batch.batch_name if m.emba_details and m.emba_details.batch else '—' }}</td>
+        <td class="px-3 py-2">{{ m.emba_details.class_roll if m.emba_details else '—' }}</td>
+        <td class="px-3 py-2 text-gray-500">{{ m.email }}</td>
+        <td class="px-3 py-2 text-gray-500">{{ m.profile.mobile_personal if m.profile else '—' }}</td>
+        <td class="px-3 py-2">
+          <span class="px-2 py-0.5 rounded text-xs
+            {% if m.status == 'active' %}bg-green-100 text-green-700
+            {% elif m.status == 'pending' %}bg-amber-100 text-amber-700
+            {% elif m.status == 'blocked' %}bg-red-100 text-red-700
+            {% elif m.status == 'unregistered' %}bg-gray-100 text-gray-400
+            {% else %}bg-gray-100 text-gray-500{% endif %}">{{ 'not registered' if m.status == 'unregistered' else m.status }}</span>
+        </td>
+        <td class="px-3 py-2">
+          <span class="px-2 py-0.5 rounded text-xs {{ 'bg-green-100 text-green-700' if pay_status == 'Paid' else 'bg-red-100 text-red-700' }}">{{ pay_status }}</span>
+        </td>
+        <td class="px-3 py-2">
+          <div class="flex gap-1 flex-wrap">
+            {% if m.status == 'unregistered' %}
+            <span class="text-xs text-gray-400">Not yet registered</span>
+            {% elif m.status == 'pending' %}
+            <a href="{{ url_for('admin.approve_user', user_id=m.id) }}" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">Approve</a>
+            <form method="post" action="{{ url_for('admin.reject_user', user_id=m.id) }}" onsubmit="return confirm('Reject this applicant?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="reason" value="Does not match member records">
+              <button class="bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded text-xs">Reject</button>
+            </form>
+            {% else %}
+            <a href="{{ url_for('admin.edit_user', user_id=m.id) }}" class="bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-xs">Edit</a>
+            <form method="post" action="{{ url_for('admin.set_status', user_id=m.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <select name="status" onchange="this.form.submit()" class="border border-gray-300 rounded text-xs px-1 py-1">
+                <option value="">Set status...</option>
+                <option value="active" {% if m.status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if m.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                <option value="blocked" {% if m.status == 'blocked' %}selected{% endif %}>Blocked</option>
+              </select>
+            </form>
+            <form method="post" action="{{ url_for('admin.reset_password', user_id=m.id) }}" onsubmit="return confirm('Reset this member\'s password?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-xs">Reset PW</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="px-3 py-6 text-center text-gray-400">No users match.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

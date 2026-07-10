@@ -1,0 +1,35 @@
+{% extends 'admin/_base.html' %}
+{% block title %}Admin Dashboard — {{ site_name }}{% endblock %}
+{% block admin_content %}
+<h1 class="text-xl font-bold text-primary-800 mb-4">Dashboard</h1>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white border border-gray-200 rounded-lg p-4"><div class="text-2xl font-bold text-primary-700">{{ total_members }}</div><div class="text-xs text-gray-500">Total members</div></div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4"><div class="text-2xl font-bold text-amber-600">{{ pending }}</div><div class="text-xs text-gray-500">Pending approvals</div></div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4"><div class="text-2xl font-bold text-green-600">{{ active }}</div><div class="text-xs text-gray-500">Active members</div></div>
+  <div class="bg-white border border-gray-200 rounded-lg p-4"><div class="text-2xl font-bold text-primary-700">৳{{ '%.0f'|format(month_total) }}</div><div class="text-xs text-gray-500">Collected this month</div></div>
+</div>
+<div class="bg-white border border-gray-200 rounded-lg p-4 mb-6 flex items-center justify-between">
+  <div class="text-sm text-gray-500">Preloaded roster not yet registered</div>
+  <div class="text-lg font-bold text-gray-700">{{ preloaded_count }}</div>
+</div>
+<div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+  <div class="text-sm text-gray-500 mb-2">Payments collected this year: <strong class="text-gray-800">৳{{ '%.0f'|format(year_total) }}</strong></div>
+</div>
+<div class="bg-white border border-gray-200 rounded-lg p-4">
+  <h2 class="font-semibold text-gray-700 mb-3">Members by Batch</h2>
+  <canvas id="batchChart" height="90"></canvas>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('batchChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ batch_labels|tojson }},
+    datasets: [{ label: 'Members', data: {{ batch_values|tojson }}, backgroundColor: '#31427F' }]
+  },
+  options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+});
+</script>
+{% endblock %}

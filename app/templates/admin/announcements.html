@@ -1,0 +1,39 @@
+{% extends 'admin/_base.html' %}
+{% block title %}Announcements — Admin{% endblock %}
+{% block admin_content %}
+<h1 class="text-xl font-bold text-primary-800 mb-4">Announcements</h1>
+<div class="grid md:grid-cols-2 gap-6">
+  <form method="post" class="bg-white border border-gray-200 rounded-lg p-5 space-y-3 h-fit">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+      <label class="block text-sm font-medium mb-1">Title</label>
+      <input type="text" name="title" required class="w-full border border-gray-300 rounded-md px-3 py-2">
+    </div>
+    <div>
+      <label class="block text-sm font-medium mb-1">Body</label>
+      <textarea name="body" required rows="4" class="w-full border border-gray-300 rounded-md px-3 py-2"></textarea>
+    </div>
+    <button type="submit" class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-md font-medium">Post announcement</button>
+  </form>
+
+  <div class="space-y-3">
+    {% for a in announcements %}
+    <div class="bg-white border border-gray-200 rounded-lg p-4">
+      <div class="flex justify-between items-start">
+        <div>
+          <h3 class="font-semibold text-gray-800">{{ a.title }}</h3>
+          <p class="text-sm text-gray-500">{{ a.body }}</p>
+          <p class="text-xs text-gray-400 mt-1">{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        </div>
+        <form method="post" action="{{ url_for('admin.toggle_announcement', ann_id=a.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="text-xs px-2 py-1 rounded {{ 'bg-green-100 text-green-700' if a.active else 'bg-gray-100 text-gray-500' }}">{{ 'Active' if a.active else 'Hidden' }}</button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="text-center text-gray-400 text-sm py-6">No announcements yet.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
